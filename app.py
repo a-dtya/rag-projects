@@ -106,3 +106,45 @@ def load_mcq_generator(pdf_path):
     combined_context = campaign_material + "\nRelated information:\n" + kb_context
     return generate_mcqs(combined_context)
     
+def load_question_store(store_path="question_store"):
+    embeddings = load_embeddings()
+    try:
+        return FAISS.load_local(store_path, embeddings)
+    except Exception:
+        print("⚠️ Question store not found. Creating a new one.")
+        return FAISS.from_texts([], embeddings)
+
+def is_duplicate_question(question, question_store, threshold=0.85):
+    """
+    Checks if a question is similar to any in the store.
+    """
+    results = question_store.similarity_search_with_score(question, k=1)
+    return results and results[0][1] >= threshold
+
+def filter_unique_questions(mcq_list, question_store, threshold=0.85):
+    """
+    Filters out duplicate questions and returns a list of unique ones.
+    """
+    unique_questions = []
+    for mcq in mcq_list.mcqs:
+        if not is_duplicate_question(mcq.question, question_store, threshold):
+            unique_questions.append(mcq.question)
+        else:
+            print(f"🔁 Skipping duplicate: {mcq.question[:80]}...")
+    return unique_questions
+
+def store_unique_questions(mcq_list, store_path="question_store", threshold=0.85):
+    """
+    Filters duplicates and stores only unique questions into FAISS.
+    Returns the list of newly stored questions.
+    """
+    question_store = load_question_store(store_path)
+    unique_questions = filter_unique_questions(mcq_list, question_store, threshold)
+
+    if unique_questions:
+        question_store.add_texts(unique_questions)
+        question_store.save_local(store_path)
+        print(f"✅ Stored {len(unique_questions)} new question(s).")
+    else:
+        print("⚠️ No new questions stored. All were duplicates.")
+    return unique_questions
