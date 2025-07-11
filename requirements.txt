@@ -1,0 +1,9 @@
+langchain
+faiss-cpu 
+langchain-core
+langchain-openai
+PyPDF2
+langchain-community
+pandas
+sentence-transformers
+transformers
